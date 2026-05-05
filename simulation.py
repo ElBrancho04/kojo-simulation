@@ -5,7 +5,7 @@ from __future__ import annotations
 import heapq
 import random
 from collections import deque
-from typing import Deque, List, Optional
+from typing import Deque, Dict, List, Optional
 
 import config
 from model import Cliente, Evento, Servidor
@@ -49,11 +49,17 @@ def _iniciar_servicio(
 	tiempo_actual: float,
 	eventos: List[Evento],
 	rng: random.Random,
+	recolector: Optional[Dict] = None,
 ) -> None:
 	servidor.ocupado = True
 	cliente.tiempo_inicio_servicio = tiempo_actual
 	tiempo_servicio = _tiempo_servicio(cliente.tipo, rng)
 	cliente.tiempo_fin_servicio = tiempo_actual + tiempo_servicio
+	if recolector is not None:
+		if cliente.tipo == "sandwich":
+			recolector.setdefault("servicio_sandwich", []).append(tiempo_servicio)
+		else:
+			recolector.setdefault("servicio_sushi", []).append(tiempo_servicio)
 	_programar_evento(
 		eventos,
 		FIN_SERVICIO,
@@ -68,6 +74,9 @@ def simular_dia(
 	lambda_pico: float = config.LAMBDA_PICO,
 	p_sandwich: float = config.P_SANDWICH,
 	seed: Optional[int] = None,
+	debug: bool = False,
+	debug_max_eventos: Optional[int] = None,
+	recolector: Optional[Dict] = None,
 ) -> List[float]:
 	"""Simula un día de trabajo y retorna los tiempos totales por cliente."""
 
@@ -78,6 +87,24 @@ def simular_dia(
 	lambda_actual = lambda_normal
 	cierre_activo = False
 	cliente_id = 0
+	contador_eventos = 0
+
+	if recolector is None:
+		recolector = {}
+	else:
+		recolector.setdefault("servicio_sandwich", [])
+		recolector.setdefault("servicio_sushi", [])
+		recolector.setdefault("cambios_lambda", [])
+		recolector.setdefault("cambios_extra", [])
+		recolector.setdefault("llegadas_despues_cierre", [])
+		recolector.setdefault("desbalances_tiempo", [])
+
+	def log_evento(mensaje: str) -> None:
+		if not debug:
+			return
+		if debug_max_eventos is not None and contador_eventos >= debug_max_eventos:
+			return
+		print(mensaje)
 
 	servidores: List[Servidor] = [Servidor(id=1), Servidor(id=2)]
 	servidor_extra = None
@@ -99,9 +126,20 @@ def simular_dia(
 		evento = heapq.heappop(eventos)
 		tiempo_actual = evento.tiempo
 		datos = evento.datos
+		contador_eventos += 1
+
+		if debug:
+			estados = ", ".join(
+				f"S{srv.id}:{'O' if srv.ocupado else 'L'}:{'A' if srv.activo else 'I'}"
+				for srv in servidores
+			)
+			log_evento(
+				f"t={tiempo_actual:.2f} | {evento.tipo} | cola={len(cola)} | {estados}"
+			)
 
 		if evento.tipo == LLEGADA:
 			if cierre_activo or tiempo_actual > config.CIERRE:
+				recolector["llegadas_despues_cierre"].append(tiempo_actual)
 				continue
 
 			cliente_id += 1
@@ -110,7 +148,7 @@ def simular_dia(
 
 			servidor_libre = _obtener_servidor_libre(servidores)
 			if servidor_libre:
-				_iniciar_servicio(cliente, servidor_libre, tiempo_actual, eventos, rng)
+				_iniciar_servicio(cliente, servidor_libre, tiempo_actual, eventos, rng, recolector)
 			else:
 				cola.append(cliente)
 
@@ -125,28 +163,45 @@ def simular_dia(
 			tiempo_total = cliente.tiempo_fin_servicio - cliente.tiempo_llegada
 			tiempos_totales.append(tiempo_total)
 
+			tiempo_espera = cliente.tiempo_inicio_servicio - cliente.tiempo_llegada
+			tiempo_servicio = cliente.tiempo_fin_servicio - cliente.tiempo_inicio_servicio
+			diferencia = abs(tiempo_total - (tiempo_espera + tiempo_servicio))
+			if diferencia > 1e-9:
+				recolector["desbalances_tiempo"].append(
+					{
+						"id": cliente.id,
+						"diferencia": diferencia,
+					}
+				)
+
 			if servidor.activo and cola:
 				siguiente_cliente = cola.popleft()
-				_iniciar_servicio(siguiente_cliente, servidor, tiempo_actual, eventos, rng)
+				_iniciar_servicio(siguiente_cliente, servidor, tiempo_actual, eventos, rng, recolector)
 
 		elif evento.tipo == CAMBIO_PERIODO:
 			lambda_actual = datos["lambda"]
+			recolector["cambios_lambda"].append((tiempo_actual, lambda_actual))
 
 			if servidor_extra is not None:
 				activar = datos["activar_extra"]
 				if activar:
 					servidor_extra.activo = True
+					recolector["cambios_extra"].append((tiempo_actual, True))
 					if not servidor_extra.ocupado and cola:
 						siguiente_cliente = cola.popleft()
-						_iniciar_servicio(siguiente_cliente, servidor_extra, tiempo_actual, eventos, rng)
+						_iniciar_servicio(siguiente_cliente, servidor_extra, tiempo_actual, eventos, rng, recolector)
 				else:
 					if servidor_extra.ocupado:
 						servidor_extra.activo = False
 					else:
 						servidor_extra.activo = False
+					recolector["cambios_extra"].append((tiempo_actual, False))
 
 		elif evento.tipo == CIERRE:
 			cierre_activo = True
+			recolector["cierre"] = tiempo_actual
+
+	recolector["ultimo_evento"] = tiempo_actual if "tiempo_actual" in locals() else None
 
 	return tiempos_totales
 
