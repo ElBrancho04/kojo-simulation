@@ -109,6 +109,9 @@ def media_intervalo_confianza(
 class ResultadoExperimento:
 	nombre: str
 	escenario: str
+	lambda_normal: float
+	lambda_pico: float
+	p_sandwich: float
 	porcentajes: List[float]
 	media: float
 	ic_inferior: Optional[float]
@@ -119,6 +122,9 @@ class ResultadoExperimento:
 def resumir_experimento(
 	nombre: str,
 	escenario: str,
+	lambda_normal: float,
+	lambda_pico: float,
+	p_sandwich: float,
 	replicas_tiempos: Sequence[Sequence[float]],
 	umbral: float = config.UMBRAL_ESPERA,
 	confianza: float = 0.95,
@@ -130,6 +136,9 @@ def resumir_experimento(
 	return ResultadoExperimento(
 		nombre=nombre,
 		escenario=escenario,
+		lambda_normal=lambda_normal,
+		lambda_pico=lambda_pico,
+		p_sandwich=p_sandwich,
 		porcentajes=porcentajes,
 		media=promedio,
 		ic_inferior=ic_inf,
@@ -138,11 +147,48 @@ def resumir_experimento(
 	)
 
 
+def imprimir_tabla_comparativa(resultados: Sequence[ResultadoExperimento]) -> None:
+	"""Imprime una tabla comparativa A vs B con reducción absoluta/relativa."""
+
+	pares = {}
+	for res in resultados:
+		pares.setdefault(res.nombre, {})[res.escenario] = res
+
+	encabezado = (
+		"Experimento | Media A | IC A | Media B | IC B | "
+		"Reducción absoluta | Reducción relativa"
+	)
+	print(encabezado)
+	print("-" * len(encabezado))
+
+	for nombre in sorted(pares.keys(), key=lambda n: int(n.replace("E", ""))):
+		res_a = pares[nombre].get("A")
+		res_b = pares[nombre].get("B")
+		if not res_a or not res_b:
+			continue
+		reduccion_abs = res_a.media - res_b.media
+		reduccion_rel = (reduccion_abs / res_a.media * 100) if res_a.media != 0 else 0.0
+		ic_a = (
+			"N/A"
+			if res_a.ic_inferior is None or res_a.ic_superior is None
+			else f"[{res_a.ic_inferior:.2f}, {res_a.ic_superior:.2f}]"
+		)
+		ic_b = (
+			"N/A"
+			if res_b.ic_inferior is None or res_b.ic_superior is None
+			else f"[{res_b.ic_inferior:.2f}, {res_b.ic_superior:.2f}]"
+		)
+		print(
+			f"{nombre} | {res_a.media:.2f}% | {ic_a} | {res_b.media:.2f}% | {ic_b} | "
+			f"{reduccion_abs:.2f} pp | {reduccion_rel:.2f}%"
+		)
+
+
 if __name__ == "__main__":
 	ejemplo = [
 		[2.0, 6.0, 7.5, 3.2],
 		[1.0, 4.5, 8.0, 6.2, 3.0],
 		[9.0, 2.5, 5.1],
 	]
-	resultado = resumir_experimento("E_demo", "A", ejemplo)
+	resultado = resumir_experimento("E_demo", "A", 10 / 60, 30 / 60, 0.5, ejemplo)
 	print(resultado)

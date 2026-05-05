@@ -43,4 +43,9 @@ EXPERIMENTOS = [
     {"nombre": "E3", "lambda_normal": 15/60, "lambda_pico": 30/60, "p_sandwich": 0.50},
     {"nombre": "E4", "lambda_normal": 10/60, "lambda_pico": 30/60, "p_sandwich": 0.30},
     {"nombre": "E5", "lambda_normal": 10/60, "lambda_pico": 30/60, "p_sandwich": 0.70},
+    {"nombre": "E6", "lambda_normal": 10/60, "lambda_pico": 50/60, "p_sandwich": 0.50},
+    {"nombre": "E7", "lambda_normal": 15/60, "lambda_pico": 40/60, "p_sandwich": 0.50},
+    {"nombre": "E8", "lambda_normal": 10/60, "lambda_pico": 30/60, "p_sandwich": 0.20},
+    {"nombre": "E9", "lambda_normal": 10/60, "lambda_pico": 30/60, "p_sandwich": 0.80},
+    {"nombre": "E10", "lambda_normal": 20/60, "lambda_pico": 50/60, "p_sandwich": 0.50},
 ]
