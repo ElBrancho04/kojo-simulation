@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import random
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
@@ -14,7 +15,7 @@ from stats import ResultadoExperimento, resumir_experimento
 def generar_semillas(num_replicas: int, semilla_base: int) -> List[int]:
 	"""Genera una lista de semillas reproducibles para las réplicas."""
 
-	rng = __import__("random").Random(semilla_base)
+	rng = random.Random(semilla_base)
 	return [rng.randrange(1_000_000_000) for _ in range(num_replicas)]
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import config
 from simulation import simular_dia
@@ -78,7 +78,7 @@ def validar_simulador(
     escenario: str = "A",
     replicas: int = 3,
     debug: bool = True,
-    debug_max_eventos: int | None = 200,
+    debug_max_eventos: Optional[int] = 200,
 ) -> None:
     """Ejecuta validaciones básicas con trazas opcionales."""
 

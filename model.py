@@ -47,6 +47,12 @@ class Servidor:
 _event_counter = count()
 
 
+def reset_event_counter() -> None:
+	"""Reinicia el contador de secuencia de eventos para una nueva réplica."""
+	global _event_counter
+	_event_counter = count()
+
+
 @dataclass(order=True)
 class Evento:
 	"""Evento compatible con heapq (ordenado por tiempo y secuencia)."""

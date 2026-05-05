@@ -8,7 +8,7 @@ from collections import deque
 from typing import Deque, Dict, List, Optional
 
 import config
-from model import Cliente, Evento, Servidor
+from model import Cliente, Evento, Servidor, reset_event_counter
 
 LLEGADA = "LLEGADA"
 FIN_SERVICIO = "FIN_SERVICIO"
@@ -88,16 +88,19 @@ def simular_dia(
 	cierre_activo = False
 	cliente_id = 0
 	contador_eventos = 0
+	tiempo_actual = 0.0
 
 	if recolector is None:
 		recolector = {}
-	else:
-		recolector.setdefault("servicio_sandwich", [])
-		recolector.setdefault("servicio_sushi", [])
-		recolector.setdefault("cambios_lambda", [])
-		recolector.setdefault("cambios_extra", [])
-		recolector.setdefault("llegadas_despues_cierre", [])
-		recolector.setdefault("desbalances_tiempo", [])
+
+	recolector.setdefault("servicio_sandwich", [])
+	recolector.setdefault("servicio_sushi", [])
+	recolector.setdefault("cambios_lambda", [])
+	recolector.setdefault("cambios_extra", [])
+	recolector.setdefault("llegadas_despues_cierre", [])
+	recolector.setdefault("desbalances_tiempo", [])
+
+	reset_event_counter()
 
 	def log_evento(mensaje: str) -> None:
 		if not debug:
@@ -191,17 +194,14 @@ def simular_dia(
 						siguiente_cliente = cola.popleft()
 						_iniciar_servicio(siguiente_cliente, servidor_extra, tiempo_actual, eventos, rng, recolector)
 				else:
-					if servidor_extra.ocupado:
-						servidor_extra.activo = False
-					else:
-						servidor_extra.activo = False
+					servidor_extra.activo = False
 					recolector["cambios_extra"].append((tiempo_actual, False))
 
 		elif evento.tipo == CIERRE:
 			cierre_activo = True
 			recolector["cierre"] = tiempo_actual
 
-	recolector["ultimo_evento"] = tiempo_actual if "tiempo_actual" in locals() else None
+	recolector["ultimo_evento"] = tiempo_actual
 
 	return tiempos_totales
 
